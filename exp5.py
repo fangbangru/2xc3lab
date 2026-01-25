@@ -149,147 +149,185 @@ class Heap:
     
 # =========================
 # EXPERIMENT 5 RUNNER CODE
+"""
+exp5.py — Experiment 5 runner for 2XC3 Lab 1 (Good sorts)
+
+Requirement match:
+- Explicit outline: constant list length, swaps values, runs, etc.
+- Graph: swaps vs time with 3 curves (quicksort/mergesort/heapsort), list length constant
+- Brief discussion: written in report (this script outputs the data + plot)
+
+Put this file in the SAME folder as:
+  - good_sorts.py
+  - bad_sorts.py
+Run:
+  python exp5.py
+"""
+
+import os
+import sys
+import csv
+import random
+import statistics
+from time import perf_counter
+
+# --- Import your course files ---
+import good_sorts
+import bad_sorts
+
+# ------------------ EXPLICIT OUTLINE (EDIT IF YOU WANT) ------------------
+MAX_VALUE = 10**6
+
+# Experiment 5 requires constant list length
+N = 5000
+
+# swaps values (how "non-sorted" the list is)
+SWAPS_VALUES = [0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
+
+# runs per swaps value
+RUNS = 3
+
+# fixed seed (optional, for reproducibility)
+SEED = 54321
+
+# quicksort pivot is first element; near-sorted can cause deep recursion
+sys.setrecursionlimit(200000)
+
+ALGORITHMS = [
+    ("quicksort", good_sorts.quicksort),
+    ("mergesort", good_sorts.mergesort),
+    ("heapsort",  good_sorts.heapsort),
+]
+# ------------------------------------------------------------------------
 
 
-if __name__ == "__main__":
-    import os
-    import csv
-    import random
-    import statistics
-    import sys
-    from time import perf_counter
+def script_dir() -> str:
+    """Directory of this script, so outputs always go to the right place."""
+    return os.path.dirname(os.path.abspath(__file__))
 
-    import matplotlib.pyplot as plt
 
-    import bad_sorts
-    # NOTE: we're inside good_sorts.py, so quicksort/mergesort/heapsort are available.
+def ensure_out_dir() -> str:
+    out = os.path.join(script_dir(), "out")
+    os.makedirs(out, exist_ok=True)
+    return out
 
-    # -------- Explicit outline (matches lab requirement) --------
-    OUT_DIR = "out"
-    MAX_VALUE = 10**6
 
-    # List length MUST be constant for Experiment 5
-    EXP5_N = 5000
+def time_one(sort_fn, base_list) -> float:
+    """Time sorting on a COPY of the same base list (fairness)."""
+    L = list(base_list)
+    t0 = perf_counter()
+    sort_fn(L)
+    return perf_counter() - t0
 
-    # Swaps values tested
-    EXP5_SWAPS = [0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
 
-    # Number of runs per swaps value
-    EXP5_RUNS = 3
+def sanity_check():
+    """Quick correctness check before doing long timing."""
+    base = bad_sorts.create_random_list(50, 1000)
+    expected = sorted(base)
+    for name, fn in ALGORITHMS:
+        test = base.copy()
+        fn(test)
+        if test != expected:
+            raise AssertionError(f"[Sanity check FAILED] {name} did not sort correctly.")
+    print("[Sanity check PASSED] all algorithms sort correctly.\n")
 
-    # Seed for reproducibility (optional)
-    EXP5_SEED = 54321
 
-    # Quicksort pivot is first element; near-sorted can cause deep recursion
-    sys.setrecursionlimit(200000)
-    # ----------------------------------------------------------
+def write_csv(path, header, rows):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        w.writerows(rows)
 
-    def ensure_out_dir():
-        os.makedirs(OUT_DIR, exist_ok=True)
 
-    def time_one(sort_fn, base_list):
-        """Time sort_fn on a COPY of base_list (fair comparison)."""
-        L = list(base_list)
-        t0 = perf_counter()
-        sort_fn(L)
-        t1 = perf_counter()
-        return t1 - t0
+def summarize_raw(raw_rows):
+    """
+    raw_rows: list of tuples (swaps, run, algorithm, time_s)
+    returns: list of tuples (swaps, algorithm, mean_time_s, stdev_time_s, count)
+    """
+    bucket = {}
+    for swaps, run, alg, t in raw_rows:
+        bucket.setdefault((swaps, alg), []).append(t)
 
-    def write_csv(path, header, rows):
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(header)
-            w.writerows(rows)
+    summary = []
+    for (swaps, alg), ts in sorted(bucket.items(), key=lambda x: x[0]):
+        mean = statistics.mean(ts)
+        stdev = statistics.pstdev(ts) if len(ts) > 1 else 0.0
+        summary.append((swaps, alg, mean, stdev, len(ts)))
+    return summary
 
-    def summarize(rows):
-        """
-        rows: list of dicts with keys: swaps, algorithm, time_s
-        returns: list of dicts: swaps, algorithm, mean_time_s, stdev_time_s, count
-        """
-        buckets = {}
-        for r in rows:
-            key = (r["swaps"], r["algorithm"])
-            buckets.setdefault(key, []).append(r["time_s"])
 
-        out = []
-        for (swaps, alg), times in sorted(buckets.items(), key=lambda x: x[0]):
-            mean = statistics.mean(times)
-            stdev = statistics.pstdev(times) if len(times) > 1 else 0.0
-            out.append({
-                "swaps": swaps,
-                "algorithm": alg,
-                "mean_time_s": mean,
-                "stdev_time_s": stdev,
-                "count": len(times),
-            })
-        return out
+def make_plot(summary_rows, out_path):
+    """
+    summary_rows: list of tuples (swaps, algorithm, mean_time_s, stdev_time_s, count)
+    """
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("ERROR: matplotlib not installed. Run: python -m pip install matplotlib")
+        return
 
-    # ---- Run Experiment 5 ----
-    ensure_out_dir()
-    random.seed(EXP5_SEED)
+    # Prepare series for each algorithm
+    x = SWAPS_VALUES
+    alg_to_y = {name: [] for name, _ in ALGORITHMS}
 
-    algorithms = [
-        ("quicksort", quicksort),
-        ("mergesort", mergesort),
-        ("heapsort", heapsort),
-    ]
+    # Turn summary into a dict for fast lookup
+    lookup = {(swaps, alg): mean for swaps, alg, mean, stdev, cnt in summary_rows}
 
-    raw = []
-    print("=== Experiment 5: near-sorted lists (fixed n), varying swaps ===")
-    print(f"  n fixed at {EXP5_N}")
-    for swaps in EXP5_SWAPS:
-        for run in range(1, EXP5_RUNS + 1):
-            base = bad_sorts.create_near_sorted_list(EXP5_N, MAX_VALUE, swaps)
+    for alg_name, _ in ALGORITHMS:
+        for s in x:
+            alg_to_y[alg_name].append(lookup[(s, alg_name)])
 
-            # Fairness: time each algorithm on SAME base list (copy inside time_one)
-            for alg_name, alg_fn in algorithms:
-                dt = time_one(alg_fn, base)
-                raw.append({
-                    "swaps": swaps,
-                    "run": run,
-                    "algorithm": alg_name,
-                    "time_s": dt,
-                })
-        print(f"  finished swaps={swaps}")
-
-    # Save raw CSV
-    raw_path = os.path.join(OUT_DIR, "exp5_raw.csv")
-    write_csv(
-        raw_path,
-        ["swaps", "run", "algorithm", "time_s"],
-        [[r["swaps"], r["run"], r["algorithm"], r["time_s"]] for r in raw]
-    )
-
-    # Save summary CSV
-    summ = summarize(raw)
-    summ_path = os.path.join(OUT_DIR, "exp5_summary.csv")
-    write_csv(
-        summ_path,
-        ["swaps", "algorithm", "mean_time_s", "stdev_time_s", "count"],
-        [[s["swaps"], s["algorithm"], s["mean_time_s"], s["stdev_time_s"], s["count"]] for s in summ]
-    )
-
-    # Plot: swaps vs mean runtime (3 curves), n constant
     plt.figure()
-    for alg_name, _ in algorithms:
-        xs = EXP5_SWAPS
-        ys = []
-        for s in xs:
-            entry = next(row for row in summ if row["swaps"] == s and row["algorithm"] == alg_name)
-            ys.append(entry["mean_time_s"])
-        plt.plot(xs, ys, marker="o", label=alg_name)
+    for alg_name, y in alg_to_y.items():
+        plt.plot(x, y, marker="o", label=alg_name)
 
     plt.xlabel("Number of random swaps")
     plt.ylabel("Mean runtime (seconds)")
-    plt.title(f"Experiment 5: Good sorts runtime vs swaps (near-sorted lists, n={EXP5_N})")
+    plt.title(f"Experiment 5: swaps vs time (near-sorted lists, n={N})")
     plt.legend()
     plt.tight_layout()
-
-    plot_path = os.path.join(OUT_DIR, "exp5_good_sorts_swaps_vs_time.png")
-    plt.savefig(plot_path, dpi=200)
+    plt.savefig(out_path, dpi=200)
     plt.close()
 
+
+def main():
+    out_dir = ensure_out_dir()
+    random.seed(SEED)
+
+    sanity_check()
+
+    print("=== Experiment 5: near-sorted lists, fixed length, varying swaps ===")
+    print(f"n = {N} (constant)")
+    print(f"swaps values = {SWAPS_VALUES}")
+    print(f"runs per swaps = {RUNS}\n")
+
+    raw = []
+    for swaps in SWAPS_VALUES:
+        for run in range(1, RUNS + 1):
+            base = bad_sorts.create_near_sorted_list(N, MAX_VALUE, swaps)
+
+            # Fairness: same base list -> each alg sorts a copy
+            for alg_name, alg_fn in ALGORITHMS:
+                dt = time_one(alg_fn, base)
+                raw.append((swaps, run, alg_name, dt))
+
+        print(f"  finished swaps={swaps}")
+
+    raw_csv = os.path.join(out_dir, "exp5_raw.csv")
+    write_csv(raw_csv, ["swaps", "run", "algorithm", "time_s"], raw)
+
+    summary = summarize_raw(raw)
+    summary_csv = os.path.join(out_dir, "exp5_summary.csv")
+    write_csv(summary_csv, ["swaps", "algorithm", "mean_time_s", "stdev_time_s", "count"], summary)
+
+    plot_path = os.path.join(out_dir, "exp5_good_sorts_swaps_vs_time.png")
+    make_plot(summary, plot_path)
+
     print("\n[Experiment 5 DONE]")
-    print(f"  Plot:   {plot_path}")
-    print(f"  Raw:    {raw_path}")
-    print(f"  Summary:{summ_path}")
+    print("Plot:   ", plot_path)
+    print("Raw:    ", raw_csv)
+    print("Summary:", summary_csv)
+
+
+if __name__ == "__main__":
+    main()
