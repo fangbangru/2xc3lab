@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from bad_sorts import create_random_list, bubble_sort, insertion_sort, selection_sort
 
 def time_sort(sort_func, L):
-    A = L[:]  # 关键：拷贝，避免 in-place 影响
+    A = L[:]  
     t0 = time.perf_counter()
     sort_func(A)
     t1 = time.perf_counter()
