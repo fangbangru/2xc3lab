@@ -198,14 +198,11 @@ def bottom_up_mergesort(L):
             mid = min(start + width, n)
             end = min(start + 2 * width, n)
 
-            # merge the two runs: L[start:mid] and L[mid:end]
             merged = merge(L[start:mid], L[mid:end])
 
-            # write back to temp
             temp[start:end] = merged
 
             start += 2 * width
 
-        # copy temp back to L
         L[:] = temp[:]
         width *= 2
