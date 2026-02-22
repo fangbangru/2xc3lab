@@ -5,17 +5,14 @@ from graph import create_random_graph, MVC, approx1, approx2, approx3
 
 
 def mean_ratios_for_m(n, m, runs):
-    """
-    Returns (mean_r1, mean_r2, mean_r3) for fixed n,m over 'runs' random graphs.
-    Where rk = |approxk(G)| / |MVC(G)|.
-    """
+
     s1 = s2 = s3 = 0.0
 
     for _ in range(runs):
         G = create_random_graph(n, m)
         opt = len(MVC(G))
 
-        # if no edges, opt=0; define ratio as 1.0 (all methods "perfect")
+        # if no edges, opt=0; define ratio as 1.0 to avoid division by zero and to reflect that approx is also 0
         if opt == 0:
             r1 = r2 = r3 = 1.0
         else:
@@ -85,7 +82,7 @@ def plot_worstcase_curve(n, runs, step, seed):
 
 
 if __name__ == "__main__":
-    # Keep n small: MVC is exponential
+
     seed = 0
 
     # FIG 1

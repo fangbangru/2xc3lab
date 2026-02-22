@@ -304,3 +304,25 @@ def approx3(G):
         _remove_incident_edges(adj, v)
 
     return list(C)
+
+# Part 2 (IS)
+
+from itertools import combinations
+
+def is_independent_set(G, S):
+    S = set(S)
+    for u in S:
+        for v in G.adjacent_nodes(u):
+            if v in S:
+                return False
+    return True
+
+def MIS(G):
+    nodes = list(G.adj.keys())
+    n = len(nodes)
+
+    for r in range(n, -1, -1):
+        for comb in combinations(nodes, r):
+            if is_independent_set(G, comb):
+                return list(comb)
+    return []
