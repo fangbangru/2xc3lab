@@ -234,3 +234,73 @@ def MVC(G):
 
 
 
+
+# Part 2
+
+def _copy_adj_as_sets(G):
+    return {u: set(neigh) for u, neigh in G.adj.items()}
+
+def _has_any_edge(adj):
+    return any(len(adj[u]) > 0 for u in adj)
+
+def _remove_incident_edges(adj, v):
+    for u in list(adj[v]):
+        adj[u].discard(v)
+    adj[v].clear()
+
+def _pick_random_edge(adj):
+    nodes_with_edges = [u for u in adj if adj[u]]
+    u = random.choice(nodes_with_edges)
+    v = random.choice(list(adj[u]))
+    return u, v
+
+
+def approx1(G):
+    """
+    approx1(G):
+    """
+    adj = _copy_adj_as_sets(G)
+    C = set()
+
+    while _has_any_edge(adj):
+        v = max(adj.keys(), key=lambda x: len(adj[x]))
+        C.add(v)
+        _remove_incident_edges(adj, v)
+
+    return list(C)
+
+
+def approx2(G):
+    """
+    approx2(G):
+    """
+    adj = _copy_adj_as_sets(G)
+    C = set()
+    nodes = list(adj.keys())
+
+    while _has_any_edge(adj):
+        candidates = [v for v in nodes if v not in C]
+        if not candidates:
+            break
+        v = random.choice(candidates)
+        C.add(v)
+        _remove_incident_edges(adj, v)
+
+    return list(C)
+
+
+def approx3(G):
+    """
+    approx3(G):
+    """
+    adj = _copy_adj_as_sets(G)
+    C = set()
+
+    while _has_any_edge(adj):
+        u, v = _pick_random_edge(adj)
+        C.add(u)
+        C.add(v)
+        _remove_incident_edges(adj, u)
+        _remove_incident_edges(adj, v)
+
+    return list(C)
